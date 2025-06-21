@@ -164,8 +164,8 @@ for idx = 2:numel(tVec)
         % Fin del COMPLETAR ACA
         %Dividimos en tres zonas respecto del robot
     ranges_left = ranges(1: 4*171/9); %ZONA1 [-PI/2; 7PI/6]
-    ranges_center = ranges(4*171/12: 5*171/12); %ZONA2 [7PI/6: 5PI/6]
-    ranges_right = ranges(5*171/12: 171); %ZONA1 [5PI/6; PI/2]
+    ranges_center = ranges(4*171/9: 5*171/9); %ZONA2 [7PI/6: 5PI/6]
+    ranges_right = ranges(5*171/9: 171); %ZONA1 [5PI/6; PI/2]
     
    %Para cada zona ponemos un flag para la deteccion de un obstaculo
    flag_right = false;
