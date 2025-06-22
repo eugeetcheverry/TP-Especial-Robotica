@@ -93,6 +93,11 @@ end
 v_cmd = 0.3;
 w_cmd = 0.35;
 flag_i_smell_a_rat = false;
+%Para cada zona ponemos un flag para la deteccion de un obstaculo
+flag_right = false;
+flag_center = false;
+flag_left = false;
+min_dist_center = 1;
 for idx = 2:numel(tVec)   
 
     % Generar aqui criteriosamente velocidades lineales v_cmd y angulares w_cmd
@@ -163,18 +168,27 @@ for idx = 2:numel(tVec)
         
         % Fin del COMPLETAR ACA
         %Dividimos en tres zonas respecto del robot
-    ranges_left = ranges(1: 4*171/9); %ZONA1 [-PI/2; 7PI/6]
-    ranges_center = ranges(4*171/9: 5*171/9); %ZONA2 [7PI/6: 5PI/6]
-    ranges_right = ranges(5*171/9: 171); %ZONA1 [5PI/6; PI/2]
-    
-   %Para cada zona ponemos un flag para la deteccion de un obstaculo
+       
+   if flag_center
+        x = min_dist_center;
+        y = 0.175; %Radio del robot
+        theta = atan2(y, x);
+        phi_1 = pi/2 - theta;
+        phi_2 = pi/2 + theta;
+        ranges_left = ranges(1: phi_1*171/pi); %ZONA3
+        ranges_center = ranges(phi_1*171/pi: phi_2*171/pi); %ZONA2
+        ranges_right = ranges(phi_2*171/pi: 171); %ZONA1 
+   else 
+        ranges_left = ranges(1: 4*171/9); %ZONA1 [-PI/2; 7PI/6]
+        ranges_center = ranges(4*171/9: 5*171/9); %ZONA2 [7PI/6: 5PI/6]
+        ranges_right = ranges(5*171/9: 171); %ZONA1 [5PI/6; PI/2]
+   end
+   %Criterio ya que el robot max va a 0.5m/s, si detectamos algo a 1m debe
+   %frenar/doblar, es decir, activamos el flag
    flag_right = false;
    flag_center = false;
    flag_left = false;
    
-   %Criterio ya que el robot max va a 0.5m/s, si detectamos algo a 1m debe
-   %frenar/doblar, es decir, activamos el flag
-   min_dist_center = inf;
    if min(ranges_left) < 1
        flag_left = true;
    end
@@ -215,13 +229,13 @@ for idx = 2:numel(tVec)
         v_cmd = 0;
         w_cmd = 0;
         flag_i_smell_a_rat = true;
-        aux_cont = 30
+        aux_cont = 30;
     end 
     
     if flag_i_smell_a_rat && (aux_cont >= 0) %Retrocede 15cm (centro de la roomba)
         v_cmd = -0.05;
         w_cmd = 0;
-        aux_cont = aux_cont - 1
+        aux_cont = aux_cont - 1;
         if aux_cont == 0
             flag_i_smell_a_rat = false;
             v_cmd = 0;
