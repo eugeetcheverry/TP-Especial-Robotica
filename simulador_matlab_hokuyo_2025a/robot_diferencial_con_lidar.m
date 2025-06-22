@@ -1,5 +1,8 @@
 %% Robot diferencial con lidar
-% Robotica Movil - 2025 2c
+% Robotica Movil - 2025 2c 
+% Grupo: Los del Espacio
+% Fabricio Della Vedova 
+% Maria Eugenia Etcheverry 
 close all
 clear all
 
@@ -67,7 +70,7 @@ attachLidarSensor(viz,lidar);
 
 simulationDuration = 10*60; %3*60;     % Duracion total [s]
 sampleTime = 0.1;                   % Sample time [s]
-initPose = [18; 15; pi/4];           % Pose inicial (x y theta) del robot simulado (el robot puede arrancar en cualquier lugar valido del mapa)
+initPose = [18; 15; pi];           % Pose inicial (x y theta) del robot simulado (el robot puede arrancar en cualquier lugar valido del mapa)
                                     %  probar iniciar el robot en distintos lugares                                  
                                   
 % Inicializar vectores de tiempo:1010
@@ -98,6 +101,8 @@ flag_right = false;
 flag_center = false;
 flag_left = false;
 min_dist_center = 1;
+min_dist_right = 1;
+min_dist_left = 1;
 for idx = 2:numel(tVec)   
 
     % Generar aqui criteriosamente velocidades lineales v_cmd y angulares w_cmd
@@ -171,13 +176,13 @@ for idx = 2:numel(tVec)
        
    if flag_center
         x = min_dist_center;
-        y = 0.175; %Radio del robot
+        y = 0.2; %Radio del robot
         theta = atan2(y, x);
         phi_1 = pi/2 - theta;
         phi_2 = pi/2 + theta;
-        ranges_left = ranges(1: phi_1*171/pi); %ZONA3
-        ranges_center = ranges(phi_1*171/pi: phi_2*171/pi); %ZONA2
-        ranges_right = ranges(phi_2*171/pi: 171); %ZONA1 
+        ranges_left = ranges(1: floor(phi_1*171/pi)); %ZONA3
+        ranges_center = ranges(floor(phi_1*171/pi): floor(phi_2*171/pi)); %ZONA2
+        ranges_right = ranges(floor(phi_2*171/pi): 171); %ZONA1 
    else 
         ranges_left = ranges(1: 4*171/9); %ZONA1 [-PI/2; 7PI/6]
         ranges_center = ranges(4*171/9: 5*171/9); %ZONA2 [7PI/6: 5PI/6]
@@ -191,6 +196,7 @@ for idx = 2:numel(tVec)
    
    if min(ranges_left) < 1
        flag_left = true;
+       min_dist_left = min(ranges_left);
    end
    if min(ranges_center) < 1
        flag_center = true;
@@ -198,25 +204,25 @@ for idx = 2:numel(tVec)
    end
    if min(ranges_right) < 1
        flag_right = true;
+       min_dist_right = min(ranges_right);
    end
    
    %% Velocidades TimeStep
-       
-
+    min_dist = min(min(min_dist_left, min_dist_right), min_dist_center);
     if flag_left && flag_right && flag_center
-        v_cmd = 0.025*min_dist_center;
+        v_cmd = 0.025*min_dist;
         w_cmd = -0.35;
     elseif flag_right && flag_center
-        v_cmd = 0.025*min_dist_center;
+        v_cmd = 0.025*min_dist;
         w_cmd = -0.35;
     elseif flag_left && flag_center
-        v_cmd = 0.025*min_dist_center;
+        v_cmd = 0.025*min_dist;
         w_cmd = 0.35;
     else
         v_cmd = 0.3;
-        if flag_left
+        if min_dist_left < 0.5
             w_cmd = 0.05;
-        elseif flag_right
+        elseif min_dist_right < 0.5
             w_cmd = -0.05;
         else
             w_cmd = 0;
@@ -224,7 +230,7 @@ for idx = 2:numel(tVec)
             
     end
     
-     %Si detecta algo enfrente empeiza una rutina para retroceder
+    %Si detecta algo enfrente empeiza una rutina para retroceder
     if min_dist_center < 0.16 %Ya que el lidar esta mas adelante
         v_cmd = 0;
         w_cmd = 0;
