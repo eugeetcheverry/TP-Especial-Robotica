@@ -205,7 +205,6 @@ for idx = 2:numel(tVec)
    flag_center = false;
    flag_left = false;
    
-   %Se activa cada flag si hay una medición a menos de 1m
    if min(ranges_left) < 1
        flag_left = true;
        min_dist_left = min(ranges_left);
@@ -220,11 +219,10 @@ for idx = 2:numel(tVec)
    end
    
    %% Velocidades TimeStep
-    %Se toma la distancia mínima en las tres zonas
     min_dist = min(min(min_dist_left, min_dist_right), min_dist_center);
     if flag_left && flag_right && flag_center
-        v_cmd = 0.025*min_dist; %Se crea un ICC proporcional al obstáculo más cercano
-        w_cmd = -0.35; %Gira por defecto a la derecha
+        v_cmd = 0.025*min_dist;
+        w_cmd = -0.35;
     elseif flag_right && flag_center
         v_cmd = 0.025*min_dist;
         w_cmd = -0.35;
@@ -232,8 +230,8 @@ for idx = 2:numel(tVec)
         v_cmd = 0.025*min_dist;
         w_cmd = 0.35;
     else
-        v_cmd = 0.3; %Si tiene vía libre (flag_center bajo) avanza derecho
-        if min_dist_left < 0.5 %Se aleja de las paredes
+        v_cmd = 0.3;
+        if min_dist_left < 0.5
             w_cmd = 0.05;
         elseif min_dist_right < 0.5
             w_cmd = -0.05;
@@ -243,7 +241,7 @@ for idx = 2:numel(tVec)
             
     end
     
-    %Si detecta algo enfrente empieza una rutina para retroceder
+    %Si detecta algo enfrente empeiza una rutina para retroceder
     if min_dist_center < 0.16 %Ya que el lidar esta mas adelante
         v_cmd = 0;
         w_cmd = 0;
