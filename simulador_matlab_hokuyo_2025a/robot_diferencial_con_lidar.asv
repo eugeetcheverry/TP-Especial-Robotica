@@ -16,8 +16,8 @@ if use_roomba   % si se usa el robot real, se inicializa la conexion
     rosshutdown
     pause(1)
     ipaddress_core = '192.168.0.102';
-    ipaddress_local = '192.168.0.100';  %mi ip en a red TurtleNet
-    setenv('ROS_IP', '192.168.0.100');
+    ipaddress_local = '192.168.0.110';  %mi ip en a red TurtleNet
+    setenv('ROS_IP', '192.168.0.110');
     setenv('ROS_MASTER_URI', ['http://', ipaddress_core, ':11311']);
     rosinit(ipaddress_core,11311, 'NodeHost', ipaddress_local)
     pause(.5)
@@ -61,16 +61,25 @@ hokuyo_step_c = deg2rad(90);
 lidar.scanAngles = linspace(hokuyo_step_a,hokuyo_step_c,num_scans);
 lidar.maxRange = 5;
 
+lidar2 = LidarSensor;
+lidar2.sensorOffset = [0,0];
+lidar2.scanAngles = linspace(hokuyo_step_a,hokuyo_step_c,171/9);
+lidar2.maxRange = 5;
+
 %% Crear visualizacion
 viz = Visualizer2D;
 viz.mapName = 'map';
 attachLidarSensor(viz,lidar);
 
+viz2 = Visualizer2D;
+viz2.mapName = 'map';
+attachLidarSensor(viz2,lidar2);
+
 %% Parametros de la Simulacion
 
 simulationDuration = 10*60; %3*60;     % Duracion total [s]
 sampleTime = 0.1;                   % Sample time [s]
-initPose = [18; 15; pi];           % Pose inicial (x y theta) del robot simulado (el robot puede arrancar en cualquier lugar valido del mapa)
+initPose = [20; 15; pi/4];           % Pose inicial (x y theta) del robot simulado (el robot puede arrancar en cualquier lugar valido del mapa)
                                     %  probar iniciar el robot en distintos lugares                                  
                                   
 % Inicializar vectores de tiempo:1010
@@ -110,7 +119,16 @@ min_dist_center = 1;
 min_dist_right = 1;
 min_dist_left = 1;
 
-for idx = 2:numel(tVec)   
+
+particles = initialize_particles(40);
+
+%Grafico de particulas
+figure(10); clf;
+show(map);
+hold on;
+axis equal;
+
+for idx = 2:2%numel(tVec)   
 
     % Generar aqui criteriosamente velocidades lineales v_cmd y angulares w_cmd
     % -0.5 <= v_cmd <= 0.5 and -4.25 <= w_cmd <= 4.25
@@ -118,10 +136,7 @@ for idx = 2:numel(tVec)
     % mejora las mediciones.   
     %v_cmd = vxRef(idx-1);   % estas velocidades estan como ejemplo ...
     %w_cmd = wRef(idx-1);    %      ... para que el robot haga algo.
-    
-    
-    
-    
+
         
     %% a partir de aca el robot real o el simulador ejecutan v_cmd y w_cmd:
     
@@ -179,7 +194,28 @@ for idx = 2:numel(tVec)
         % ...
         
         % Fin del COMPLETAR ACA
-        %Dividimos en tres zonas respecto del robot
+        
+     %ODOMETRIA
+   d_trans = sqrt((pose(1,idx)-pose(1,idx-1))^2 + (pose(2,idx)-pose(2,idx-1))^2);
+   d_rot1 = atan2((pose(2,idx)-pose(2,idx-1)), (pose(1,idx)-pose(1,idx-1))) - pose(3, idx-1);
+   d_rot2 = pose(3, idx) - pose(3, idx-1) - d_rot1;
+
+   u = [d_trans, d_rot1, d_rot2];
+
+   new_particles = sample_motion_model(u, particles);
+
+   weight = measurement_model(ranges, new_particles, lidar2);
+   
+   weight = weight./sum(weight);
+   
+   neff = 1/sum(weight.^2);
+   
+   if neff <
+     
+   re_particles = resample(new_particles, weight);
+     
+     
+   %Dividimos en tres zonas respecto del robot
    
    %Determinación de rangos para las zonas izquierda, central y derecha
    if flag_center
@@ -204,34 +240,38 @@ for idx = 2:numel(tVec)
    flag_right = false;
    flag_center = false;
    flag_left = false;
-   
+   min_dist_left = min(ranges_left);
+   min_dist_center = min(ranges_center);
+   min_dist_right = min(ranges_right);
+   %Se activa cada flag si hay una medición a menos de 1m
    if min(ranges_left) < 1
        flag_left = true;
-       min_dist_left = min(ranges_left);
+       
    end
    if min(ranges_center) < 1
        flag_center = true;
-       min_dist_center = min(ranges_center);
+      
    end
    if min(ranges_right) < 1
        flag_right = true;
-       min_dist_right = min(ranges_right);
+
    end
    
    %% Velocidades TimeStep
+    %Se toma la distancia mínima en las tres zonas
     min_dist = min(min(min_dist_left, min_dist_right), min_dist_center);
     if flag_left && flag_right && flag_center
-        v_cmd = 0.025*min_dist;
-        w_cmd = -0.35;
+        v_cmd = 0.05*min_dist; %Se crea un ICC proporcional al obstáculo más cercano
+        w_cmd = -0.35; %Gira por defecto a la derecha
     elseif flag_right && flag_center
-        v_cmd = 0.025*min_dist;
+        v_cmd = 0.05*min_dist;
         w_cmd = -0.35;
     elseif flag_left && flag_center
-        v_cmd = 0.025*min_dist;
+        v_cmd = 0.05*min_dist;
         w_cmd = 0.35;
     else
-        v_cmd = 0.3;
-        if min_dist_left < 0.5
+        v_cmd = 0.15; %Si tiene vía libre (flag_center bajo) avanza derecho
+        if min_dist_left < 0.5 %Se aleja de las paredes
             w_cmd = 0.05;
         elseif min_dist_right < 0.5
             w_cmd = -0.05;
@@ -241,28 +281,49 @@ for idx = 2:numel(tVec)
             
     end
     
-    %Si detecta algo enfrente empeiza una rutina para retroceder
-    if min_dist_center < 0.16 %Ya que el lidar esta mas adelante
+    %Si detecta algo enfrente empieza una rutina para retroceder
+    if min_dist_center < 0.20 %Ya que el lidar esta mas adelante
         v_cmd = 0;
-        w_cmd = 0;
-        flag_i_smell_a_rat = true;
-        aux_cont = 30;
+        w_cmd = 0.35;
+        %flag_i_smell_a_rat = true;
+        %aux_cont = 30;
     end 
     
-    if flag_i_smell_a_rat && (aux_cont >= 0) %Retrocede 15cm (centro de la roomba)
-        v_cmd = -0.05;
-        w_cmd = 0;
-        aux_cont = aux_cont - 1;
-        if aux_cont == 0
-            flag_i_smell_a_rat = false;
-            v_cmd = 0;
-            w_cmd = 0;
-        end
-    end
+    %if flag_i_smell_a_rat && (aux_cont >= 0) Retrocede 15cm (centro de la roomba)
+    %    v_cmd = -0.05;
+    %    w_cmd = 0;
+    %    aux_cont = aux_cont - 1;
+    %    if aux_cont == 0
+    %        flag_i_smell_a_rat = false;
+    %        v_cmd = 0;
+    %       w_cmd = 0;
+    %    end
+    %end
         
     %%
     % actualizar visualizacion
     viz(pose(:,idx),ranges)
+    %{
+    figure; hold on;
+    for i = [1:size(particles, 1)]
+        viz2(particles(i, :), ranges)
+    end
+    %}
+    figure(10); clf;
+    show(map); hold on;
+
+    % Dibujar partículas
+    scatter(particles(:,1), particles(:,2), 10, 'r', 'filled'); % puntos rojos
+
+    % Dibujar orientación del robot como flechita
+    %quiver(pose(1,idx), pose(2,idx), cos(pose(3,idx)), sin(pose(3,idx)), 0.5, 'b', 'LineWidth', 2);
+
+    axis equal;
+    xlim([map.XWorldLimits]);
+    ylim([map.YWorldLimits]);
+    title(['Paso ', num2str(idx), ' / ', num2str(numel(tVec))]);
+    drawnow;
+
     waitfor(r);
 end
 
