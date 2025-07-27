@@ -33,10 +33,11 @@ function new_particles = resample(particles, weights)
             muestra = muestra + 1/M;
             j = j + 1;
         end
+        for i = [1:size(new_particles,1)]
     end
     
-    for i = [1:size(new_particles,1)/50]
-        new_particles(i,3) = normrnd(new_particles(i,3), 0.2, 1, 1);
-    end
+    %for i = [1:size(new_particles,1)]
+    %    new_particles(i,3) = unifrnd(-pi, pi, 1, 1);
+    %end
     
 end

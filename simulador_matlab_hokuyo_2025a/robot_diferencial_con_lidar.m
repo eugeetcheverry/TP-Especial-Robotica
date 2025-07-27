@@ -63,7 +63,7 @@ lidar.maxRange = 5;
 
 lidar2 = LidarSensor;
 lidar2.sensorOffset = [0,0];
-lidar2.scanAngles = linspace(hokuyo_step_a,hokuyo_step_c,171/9);
+lidar2.scanAngles = linspace(hokuyo_step_a,hokuyo_step_c,floor(171/17));
 lidar2.maxRange = 5;
 
 %% Crear visualizacion
@@ -79,7 +79,7 @@ attachLidarSensor(viz2,lidar2);
 
 simulationDuration = 10*60; %3*60;     % Duracion total [s]
 sampleTime = 0.1;                   % Sample time [s]
-initPose = [20; 15; pi/4];           % Pose inicial (x y theta) del robot simulado (el robot puede arrancar en cualquier lugar valido del mapa)
+initPose = [15; 15; pi/4];           % Pose inicial (x y theta) del robot simulado (el robot puede arrancar en cualquier lugar valido del mapa)
                                     %  probar iniciar el robot en distintos lugares                                  
                                   
 % Inicializar vectores de tiempo:1010
@@ -120,7 +120,7 @@ min_dist_right = 1;
 min_dist_left = 1;
 
 
-particles = initialize_particles(40);
+particles = initialize_particles(500);
 
 %Grafico de particulas
 figure(10); clf;
@@ -128,7 +128,7 @@ show(map);
 hold on;
 axis equal;
 
-for idx = 2:2%numel(tVec)   
+for idx = 2:numel(tVec)   
 
     % Generar aqui criteriosamente velocidades lineales v_cmd y angulares w_cmd
     % -0.5 <= v_cmd <= 0.5 and -4.25 <= w_cmd <= 4.25
@@ -209,8 +209,12 @@ for idx = 2:2%numel(tVec)
    weight = weight./sum(weight);
    
    neff = 1/sum(weight.^2);
+   
+   particles = new_particles;
 
-   re_particles = resample(new_particles, weight);
+   if neff < 250
+    particles = resample(new_particles, weight);
+   end
      
      
    %Dividimos en tres zonas respecto del robot
@@ -311,7 +315,7 @@ for idx = 2:2%numel(tVec)
     show(map); hold on;
 
     % Dibujar partículas
-    scatter(particles(:,1), particles(:,2), 10, 'r', 'filled'); % puntos rojos
+    quiver(particles(:,1), particles(:,2), cos(particles(:,3)), sin(particles(:,3)), 0.8, 'r', 'filled'); % puntos rojos
 
     % Dibujar orientación del robot como flechita
     %quiver(pose(1,idx), pose(2,idx), cos(pose(3,idx)), sin(pose(3,idx)), 0.5, 'b', 'LineWidth', 2);
