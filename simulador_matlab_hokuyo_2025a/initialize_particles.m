@@ -61,15 +61,22 @@ function particles = initialize_particles(count, indexes, map)
 
 
     % Elegí índices aleatorios entre las celdas libres
-    idx = randi(size(indexes, 1), floor(count/4), 1);
+    idx = randi(size(indexes, 1), floor(count/8), 1);
 
     % Convertí de índice de celda a coordenadas del mundo
     xy = grid2world(map, [indexes(idx, 1), indexes(idx, 2)]);
 
     % Inicializá orientación aleatoria
-    theta = unifrnd(-pi, pi, floor(count/4), 1);
+    theta = unifrnd(-pi, pi, floor(count/8), 1);
 
     % Devolvés las partículas
-    particles = [xy(:,1), xy(:,2), theta; xy(:,1), xy(:,2), wrapToPi(theta - pi); xy(:,1), xy(:,2), wrapToPi(theta - pi/2); xy(:,1), xy(:,2), wrapToPi(theta + pi/2)];
+    particles = [xy(:,1), xy(:,2), theta; 
+        xy(:,1), xy(:,2), wrapToPi(theta - pi); 
+        xy(:,1), xy(:,2), wrapToPi(theta - pi/2); 
+        xy(:,1), xy(:,2), wrapToPi(theta + pi/2)
+        xy(:,1), xy(:,2), wrapToPi(theta - pi/4); 
+        xy(:,1), xy(:,2), wrapToPi(theta - 3*pi/4); 
+        xy(:,1), xy(:,2), wrapToPi(theta + pi/4)
+        xy(:,1), xy(:,2), wrapToPi(theta + 3*pi/4);];
 end
 

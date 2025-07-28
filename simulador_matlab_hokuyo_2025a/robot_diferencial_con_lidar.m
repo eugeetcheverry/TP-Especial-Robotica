@@ -84,7 +84,7 @@ attachLidarSensor(viz2,lidar2);
 
 simulationDuration = 10*60; %3*60;     % Duracion total [s]
 sampleTime = 0.1;                   % Sample time [s]
-initPose = [20; 23; 0];           % Pose inicial (x y theta) del robot simulado (el robot puede arrancar en cualquier lugar valido del mapa)
+initPose = [22; 12; -pi/2];           % Pose inicial (x y theta) del robot simulado (el robot puede arrancar en cualquier lugar valido del mapa)
                                     %  probar iniciar el robot en distintos lugares                                  
                                   
 % Inicializar vectores de tiempo:1010
@@ -126,8 +126,8 @@ min_dist_left = 1;
 
 cont_giro = 0;
 
-particles = initialize_particles(80, [free_y, free_x], map);
-particles2 = initialize_particles(300, [free_y, free_x], map);
+particles = initialize_particles(20, [free_y, free_x], map);
+particles2 = initialize_particles(800, [free_y, free_x], map);
 
 figure(10); clf;
 ax = axes;
@@ -214,8 +214,8 @@ for idx = 2:numel(tVec)
         
      %ODOMETRIA
    d_trans = sqrt((pose(1,idx)-pose(1,idx-1))^2 + (pose(2,idx)-pose(2,idx-1))^2);
-   d_rot1 = atan2((pose(2,idx)-pose(2,idx-1)), (pose(1,idx)-pose(1,idx-1))) - pose(3, idx-1);
-   d_rot2 = pose(3, idx) - pose(3, idx-1) - d_rot1;
+   d_rot1 = atan2((pose(2,idx)-pose(2,idx-1)), (pose(1,idx)-pose(1,idx-1))) - wrapToPi(pose(3, idx-1));
+   d_rot2 =  wrapToPi(pose(3, idx)) - wrapToPi(pose(3, idx-1)) - d_rot1;
 
    u = [d_trans, d_rot1, d_rot2];
 
@@ -223,7 +223,7 @@ for idx = 2:numel(tVec)
    
    weight2 = 0;
    if mod(idx, 10) == 0
-    particles2 = initialize_particles(600, [free_y, free_x], map);
+    particles2 = initialize_particles(800, [free_y, free_x], map);
     weight2 = measurement_model(ranges, particles2, lidar2);
    end
    weight = measurement_model(ranges, new_particles, lidar2);
@@ -244,9 +244,13 @@ for idx = 2:numel(tVec)
    end
    %}
 
-   if  max(weight2) > 0.6*max(weight)
-        indices = find(weight2 > 0.6*max(weight));
-        new_particles(1:size(indices),:) = particles2(indices, :);
+   if  max(weight2) > max(weight)
+        indices = find(weight2 > max(weight));
+        if size(indices,1) > size(particles,1)
+            indices = indices(1:size(particles,1));
+        end
+        [~, ind_min] = mink(weight, size(indices,1));
+        new_particles(ind_min,:) = particles2(indices, :);
         weight(1:size(indices)) = weight2(indices);
         weight = weight./sum(weight);
         %particles = resample(new_particles, weight);
@@ -255,7 +259,7 @@ for idx = 2:numel(tVec)
        weight = weight./sum(weight);
        neff = 1/sum(weight.^2);
    
-       if neff < 40
+       if neff < 5
            particles = resample(new_particles, weight);
        else
            particles = new_particles;
@@ -323,7 +327,7 @@ for idx = 2:numel(tVec)
         elseif min_dist_right < 0.5
             w_cmd = -0.05;
         else
-            w_cmd = 0.03;
+            w_cmd = 0;
         end
             
     end
@@ -335,7 +339,7 @@ for idx = 2:numel(tVec)
         %flag_i_smell_a_rat = true;
         %aux_cont = 30;
     end
-    
+
     %if flag_i_smell_a_rat && (aux_cont >= 0) Retrocede 15cm (centro de la roomba)
     %    v_cmd = -0.05;
     %    w_cmd = 0;

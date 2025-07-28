@@ -59,6 +59,6 @@ function weight = measurement_model(z, x, lidar)
 
     end
     %}
-    weight = weight ./ (size(z, 2)/9);
+    weight = weight ./ size(z, 2);
 end
 
