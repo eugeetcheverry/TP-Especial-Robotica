@@ -1,5 +1,6 @@
-function particles = initialize_particles(count)
-    % Returns a set of randomly initialized particles.
+function particles = initialize_particles(count, indexes, map)
+    %Returns a set of randomly initialized particles.
+    %{
     particles = [
         unifrnd(0, 35, 1, 1), ...
         unifrnd(0, 35, 1, 1), ...
@@ -23,5 +24,52 @@ function particles = initialize_particles(count)
             ];
         end
     end
+    %}
+    %{
+    particles = zeros(count, 3); % prealocar
+
+    i = 0;
+    while i < count
+        % Generar un batch (el doble, para evitar ciclos innecesarios)
+        batch_size = (count - i)*2;
+        xs = unifrnd(5, 30, batch_size, 1);
+        ys = unifrnd(5, 30, batch_size, 1);
+        thetas = unifrnd(-pi, pi, batch_size, 1);
+
+        % Filtrar partículas válidas
+        valid_mask = false(batch_size,1);
+        for k = 1:batch_size
+            valid_mask(k) = map_is_free(xs(k), ys(k), [0,0]);
+        end
+        
+        valid_xs = xs(valid_mask);
+        valid_ys = ys(valid_mask);
+        valid_thetas = thetas(valid_mask);
+
+        n_valid = length(valid_xs);
+
+        % Cuantas partículas puedo tomar para completar?
+        n_to_take = min(n_valid, count - i);
+
+        if n_to_take > 0
+            particles(i+1:i+n_to_take, :) = [valid_xs(1:n_to_take), valid_ys(1:n_to_take), valid_thetas(1:n_to_take)];
+            i = i + n_to_take;
+        end
+    end
+    %}
+        % Obtener mapa binario: 0 = libre, 1 = ocupa
+
+
+    % Elegí índices aleatorios entre las celdas libres
+    idx = randi(size(indexes, 1), floor(count/4), 1);
+
+    % Convertí de índice de celda a coordenadas del mundo
+    xy = grid2world(map, [indexes(idx, 1), indexes(idx, 2)]);
+
+    % Inicializá orientación aleatoria
+    theta = unifrnd(-pi, pi, floor(count/4), 1);
+
+    % Devolvés las partículas
+    particles = [xy(:,1), xy(:,2), theta; xy(:,1), xy(:,2), wrapToPi(theta - pi); xy(:,1), xy(:,2), wrapToPi(theta - pi/2); xy(:,1), xy(:,2), wrapToPi(theta + pi/2)];
 end
 

@@ -9,25 +9,39 @@ function weight = measurement_model(z, x, lidar)
     sigma = 1.5;
     weight = ones(size(x, 1), 1);
     
-    z_esp = zeros(floor(size(z,1)/17),size(x,1));
+    z_esp = zeros(floor(size(z,1)/9),size(x,1));
     
     for i = 1:size(x,1)
         z_esp(:, i) = lidar(x(i,:)');
-
     end
 
-    z_trunc = z(1:17:end);
+    z_trunc = z(1:9:size(z,1)-1);
     
     if size(z, 1) == 0
         return
     end
     
+    z_esp(isnan(z_esp)) = 8.0;
+    z_trunc(isnan(z_trunc)) = 8.0;
+    
+    z_mat = repmat(z_trunc(:), 1, size(x,1));
+    
+    coef = 1 / (sqrt(2*pi)*sigma);
+    exponent = -0.5 * ((z_mat - z_esp) ./ sigma).^2;
+    prob = coef * exp(exponent);
+
+    % Multiplicar probabilidades por partícula (cada columna)
+    weight = prod(prob, 1)';  % Resultado: vector columna [N x 1]
+    
+      
+    
+    %{
     for i = 1:size(z_esp, 1)
         range = z_trunc(i);
         if isnan(range)
             range = 5.0;
         end
-        
+
         %TODO: compute weight
         for j = 1:size(x,1)
             range_esp = z_esp(i, j);
@@ -42,8 +56,9 @@ function weight = measurement_model(z, x, lidar)
             %entre la partícula y el marcador
             weight(j) = weight(j)*normpdf(range, range_esp, sigma); %Aplico ruido gaussiano
         end
-    end
 
-    weight = weight ./ size(z, 2);
+    end
+    %}
+    weight = weight ./ size(z/9, 2);
 end
 
