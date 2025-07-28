@@ -126,6 +126,7 @@ min_dist_left = 1;
 
 cont_giro = 0;
 
+
 particles = initialize_particles(20, [free_y, free_x], map);
 particles2 = initialize_particles(800, [free_y, free_x], map);
 
@@ -144,6 +145,10 @@ axis(ax, 'equal');
 xlim(ax, map.XWorldLimits);
 ylim(ax, map.YWorldLimits);
 drawnow;
+
+%Flag & contador localizado
+i_found_myself = false;
+cont_i_found_myself = 0;
 
 for idx = 2:numel(tVec)   
 
@@ -222,7 +227,7 @@ for idx = 2:numel(tVec)
    new_particles = sample_motion_model(u, particles);
    
    weight2 = 0;
-   if mod(idx, 10) == 0
+   if mod(idx, 10) == 0 && not(i_found_myself)
     particles2 = initialize_particles(800, [free_y, free_x], map);
     weight2 = measurement_model(ranges, particles2, lidar2);
    end
@@ -244,7 +249,7 @@ for idx = 2:numel(tVec)
    end
    %}
 
-   if  max(weight2) > max(weight)
+   if  max(weight2) > max(weight) && not(i_found_myself)
         indices = find(weight2 > max(weight));
         if size(indices,1) > size(particles,1)
             indices = indices(1:size(particles,1));
@@ -255,17 +260,23 @@ for idx = 2:numel(tVec)
         weight = weight./sum(weight);
         %particles = resample(new_particles, weight);
         particles = new_particles;
+        cont_i_found_myself = 0;
    else
        weight = weight./sum(weight);
        neff = 1/sum(weight.^2);
    
        if neff < 5
            particles = resample(new_particles, weight);
+           cont_i_found_myself = cont_i_found_myself + 1;
        else
            particles = new_particles;
        end
    end
    
+   if cont_i_found_myself > 400
+        i_found_myself = true;
+        print('i found myself')
+   end
    %Dividimos en tres zonas respecto del robot
    
    %Determinación de rangos para las zonas izquierda, central y derecha
@@ -349,8 +360,7 @@ for idx = 2:numel(tVec)
     %        v_cmd = 0;
     %       w_cmd = 0;
     %    end
-    %end
-        
+    %end    
     %%
     % actualizar visualizacion
     viz(pose(:,idx),ranges)
