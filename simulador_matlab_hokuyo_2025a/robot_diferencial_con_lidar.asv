@@ -41,6 +41,11 @@ load mapa_TP_2025a.mat      %carga el mapa como occupancyMap en la variable 'map
 
 binMap = occupancyMatrix(map) < 0.1;
 
+trajectoryMatrix = imgaussfilt(occupancyMatrix(map), 3);
+
+trajectoryMap = occupancyMap(trajectoryMatrix, 25);
+
+
 % Obtener los índices de celdas libres
 [free_y, free_x] = find(binMap);  % coordenadas en celdas
 
@@ -223,11 +228,15 @@ for idx = 2:numel(tVec)
    d_rot2 =  wrapToPi(pose(3, idx)) - wrapToPi(pose(3, idx-1)) - d_rot1;
 
    u = [d_trans, d_rot1, d_rot2];
-
-   new_particles = sample_motion_model(u, particles);
+    
+   if v_cmd ~= 0
+    new_particles = sample_motion_model(u, particles);
+   else
+    new_particles = particles;
+   end
    
    weight2 = 0;
-   if mod(idx, 10) == 0
+   if mod(idx, 10) == 0 && not(i_found_myself)
     particles2 = initialize_particles(800, [free_y, free_x], map);
     weight2 = measurement_model(ranges, particles2, lidar2);
    end
@@ -249,7 +258,7 @@ for idx = 2:numel(tVec)
    end
    %}
 
-   if  max(weight2) > max(weight)
+   if  max(weight2) > max(weight) && not(i_found_myself)
         indices = find(weight2 > max(weight));
         if size(indices,1) > size(particles,1)
             indices = indices(1:size(particles,1));
@@ -264,21 +273,31 @@ for idx = 2:numel(tVec)
    else
        weight = weight./sum(weight);
        neff = 1/sum(weight.^2);
-   
+       cont_i_found_myself = cont_i_found_myself + 1;
        if neff < 5
            particles = resample(new_particles, weight);
-           cont_i_found_myself = cont_i_found_myself + 1;
+           
        else
            particles = new_particles;
        end
    end
    
-   if cont_i_found_myself > 400
-        flag_i_found_myself = true;
-   end
-   %Dividimos en tres zonas respecto del robot
+   [~, index_max] = max(weight);
+   pose_estimada = particles(index_max, :);
    
-   %Determinación de rangos para las zonas izquierda, central y derecha
+   
+   if cont_i_found_myself > 10 && not(i_found_myself)
+        i_found_myself = true;
+        v_cmd = 0;
+        w_cmd = 0;
+        i = 0;
+        for i = [1:100]
+            i = i+1;
+            waitfor(r);
+        end
+        plan = planeamiento(trajectoryMap, flip(pose_estimada(1:2)),[20, 20]);
+   end
+
    if flag_center
         x = min_dist_center;
         y = 0.2; %Radio del robot
@@ -297,59 +316,77 @@ for idx = 2:numel(tVec)
    %Criterio ya que el robot max va a 0.5m/s, si detectamos algo a 1m debe
    %frenar/doblar, es decir, activamos el flag
    
-   
-   flag_right = false;
-   flag_center = false;
-   flag_left = false;
-   min_dist_left = min(ranges_left);
-   min_dist_center = min(ranges_center);
-   min_dist_right = min(ranges_right);
-   %Se activa cada flag si hay una medición a menos de 1m
-   if min(ranges_left) < 1
-       flag_left = true;
-       
-   end
-   if min(ranges_center) < 1
-       flag_center = true;
-      
-   end
-   if min(ranges_right) < 1
-       flag_right = true;
+   if not(i_found_myself)
+       flag_right = false;
+       flag_center = false;
+       flag_left = false;
+       min_dist_left = min(ranges_left);
+       min_dist_center = min(ranges_center);
+       min_dist_right = min(ranges_right);
+       %Se activa cada flag si hay una medición a menos de 1m
+       if min(ranges_left) < 1
+           flag_left = true;
 
-   end
-   
-   %% Velocidades TimeStep
-    %Se toma la distancia mínima en las tres zonas
-    min_dist = min(min(min_dist_left, min_dist_right), min_dist_center);
-    if flag_left && flag_right && flag_center
-        v_cmd = 0.05*min_dist; %Se crea un ICC proporcional al obstáculo más cercano
-        w_cmd = -0.35; %Gira por defecto a la derecha
-    elseif flag_right && flag_center
-        v_cmd = 0.05*min_dist;
-        w_cmd = -0.35;
-    elseif flag_left && flag_center
-        v_cmd = 0.05*min_dist;
-        w_cmd = 0.35;
-    else
-        v_cmd = 0.15; %Si tiene vía libre (flag_center bajo) avanza derecho
-        if min_dist_left < 0.5 %Se aleja de las paredes
-            w_cmd = 0.05;
-        elseif min_dist_right < 0.5
-            w_cmd = -0.05;
+       end
+       if min(ranges_center) < 1
+           flag_center = true;
+
+       end
+       if min(ranges_right) < 1
+           flag_right = true;
+
+       end
+
+       %% Velocidades TimeStep
+        %Se toma la distancia mínima en las tres zonas
+        min_dist = min(min(min_dist_left, min_dist_right), min_dist_center);
+        if flag_left && flag_right && flag_center
+            v_cmd = 0.05*min_dist; %Se crea un ICC proporcional al obstáculo más cercano
+            w_cmd = -0.35; %Gira por defecto a la derecha
+        elseif flag_right && flag_center
+            v_cmd = 0.05*min_dist;
+            w_cmd = -0.35;
+        elseif flag_left && flag_center
+            v_cmd = 0.05*min_dist;
+            w_cmd = 0.35;
         else
-            w_cmd = 0;
-        end
-            
-    end
-    
-    %Si detecta algo enfrente empieza una rutina para retroceder
-    if min_dist_center < 0.20 %Ya que el lidar esta mas adelante
-        v_cmd = 0;
-        w_cmd = 0.35;
-        %flag_i_smell_a_rat = true;
-        %aux_cont = 30;
-    end
+            v_cmd = 0.15; %Si tiene vía libre (flag_center bajo) avanza derecho
+            if min_dist_left < 0.5 %Se aleja de las paredes
+                w_cmd = 0.05;
+            elseif min_dist_right < 0.5
+                w_cmd = -0.05;
+            else
+                w_cmd = 0;
+            end
 
+        end
+
+        %Si detecta algo enfrente empieza una rutina para retroceder
+        if min_dist_center < 0.20 %Ya que el lidar esta mas adelante
+            v_cmd = 0;
+            w_cmd = 0.35;
+            %flag_i_smell_a_rat = true;
+            %aux_cont = 30;
+        end
+    
+   else
+        %{
+        coords = particles(:,1:2); 
+        dists = pdist(coords, 'euclidean');
+        max_dist = max(dists);
+        if max_dist > 1
+                 i_found_myself = false;
+                 cont_i_found_myself = 0;
+        end
+        %}
+        v_cmd = 0;
+        w_cmd = 0;
+    end
+        
+        
+        
+        
+        
     %if flag_i_smell_a_rat && (aux_cont >= 0) Retrocede 15cm (centro de la roomba)
     %    v_cmd = -0.05;
     %    w_cmd = 0;
@@ -363,12 +400,7 @@ for idx = 2:numel(tVec)
     %%
     % actualizar visualizacion
     viz(pose(:,idx),ranges)
-    %{
-    figure; hold on;
-    for i = [1:size(particles, 1)]
-        viz2(particles(i, :), ranges)
-    end
-    %}
+
     % --- Actualizar los datos del quiver ---
 
     set(h_particles, ...
