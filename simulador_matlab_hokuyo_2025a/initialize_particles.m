@@ -68,15 +68,12 @@ function particles = initialize_particles(count, indexes, map)
 
     % Inicializá orientación aleatoria
     theta = unifrnd(-pi, pi, floor(count/8), 1);
-
+    
+    round = [-3*pi/4:pi/4:pi];
+    particles = [];
     % Devolvés las partículas
-    particles = [xy(:,1), xy(:,2), theta; 
-        xy(:,1), xy(:,2), wrapToPi(theta - pi); 
-        xy(:,1), xy(:,2), wrapToPi(theta - pi/2); 
-        xy(:,1), xy(:,2), wrapToPi(theta + pi/2)
-        xy(:,1), xy(:,2), wrapToPi(theta - pi/4); 
-        xy(:,1), xy(:,2), wrapToPi(theta - 3*pi/4); 
-        xy(:,1), xy(:,2), wrapToPi(theta + pi/4)
-        xy(:,1), xy(:,2), wrapToPi(theta + 3*pi/4);];
+    for i = [1:size(round, 2)]
+        particles = [particles; xy(:,1), xy(:,2), theta + round(i)];
+    end
 end
 

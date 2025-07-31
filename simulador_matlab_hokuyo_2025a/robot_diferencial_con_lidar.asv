@@ -90,7 +90,7 @@ attachLidarSensor(viz2,lidar2);
 
 simulationDuration = 10*60; %3*60;     % Duracion total [s]
 sampleTime = 0.1;                   % Sample time [s]
-initPose = [22; 12; -pi/2];           % Pose inicial (x y theta) del robot simulado (el robot puede arrancar en cualquier lugar valido del mapa)
+initPose = [17; 16; pi/2];           % Pose inicial (x y theta) del robot simulado (el robot puede arrancar en cualquier lugar valido del mapa)
                                     %  probar iniciar el robot en distintos lugares                                  
                                   
 % Inicializar vectores de tiempo:1010
@@ -131,9 +131,11 @@ min_dist_right = 1;
 min_dist_left = 1;
 
 cont_giro = 0;
+ruido_resample = true;
+sigma = 1;
 
 
-num_particles = 24;
+num_particles = 20;
 num_aux_particles = 800;
 particles = initialize_particles(num_particles, [free_y, free_x], map);
 particles2 = initialize_particles(num_aux_particles, [free_y, free_x], map);
@@ -245,18 +247,18 @@ for idx = 2:numel(tVec)
    
    if mod(idx, 10) == 0 && not(i_found_myself)
     particles2 = initialize_particles(num_aux_particles, [free_y, free_x], map);
-    weight2 = measurement_model(ranges, particles2, lidar2);
+    weight2 = measurement_model(ranges, particles2, lidar2, sigma);
    end
    
-   weight = measurement_model(ranges, new_particles, lidar2);
+   weight = measurement_model(ranges, new_particles, lidar2, sigma);
 
-   if  max(weight2) > 0.9*max(weight) && not(i_found_myself)
-        indices = find(weight2 > 0.9*max(weight));
-        if size(indices,1) > size(particles,1)
-            indices = indices(1:size(particles,1));
+   if  max(weight2) > max(weight) && not(i_found_myself)
+        indices = find(weight2 > max(weight));
+        if 2*size(indices,1) > size(particles,1)
+            indices = indices(1:floor(size(particles,1)/2));
         end
-        [~, ind_min] = mink(weight, size(indices,1));
-        new_particles(ind_min,:) = particles2(indices, :);
+        [~, ind_min] = mink(weight, 2*size(indices,1));
+        new_particles(ind_min,:) = [particles2(indices, :);particles2(indices, :)];
         weight(1:size(indices)) = weight2(indices);
         weight = weight./sum(weight);
         %particles = resample(new_particles, weight);
@@ -266,18 +268,19 @@ for idx = 2:numel(tVec)
        weight = weight./sum(weight);
        neff = 1/sum(weight.^2);
        cont_i_found_myself = cont_i_found_myself + 1;
-       if neff < 5
-           particles = resample(new_particles, weight);
+       if neff < 10
+           particles = resample(new_particles, weight, ruido_resample);
            
        else
            particles = new_particles;
        end
    end
    
-   pose_estimada = sum(particles.*weight,1);
+   [~, index_max] = max(weight);
+   pose_estimada = particles(index_max, :);
    
    
-   if cont_i_found_myself > 0 && not(i_found_myself)
+   if cont_i_found_myself > 80 && not(i_found_myself)
         i_found_myself = true;
         v_cmd = 0;
         w_cmd = 0;
@@ -285,9 +288,11 @@ for idx = 2:numel(tVec)
         for i = [1:100]
             waitfor(r);
         end
-        plan = planeamiento(trajectoryMap, pose(1:2, idx),destino);
-        plan = plan(1:40:size(plan, 1), :);
+        plan = planeamiento(trajectoryMap, pose_estimada(1:2),destino);
+        plan = plan(1:20:size(plan, 1), :);
         next_pos_index = 2;
+        %ruido_resample = false;
+        sigma = 0.5;
    end
 
    if flag_center
@@ -354,7 +359,7 @@ for idx = 2:numel(tVec)
         end
 
         %Si detecta algo enfrente empieza una rutina para retroceder
-        if min_dist_center < 0.20 %Ya que el lidar esta mas adelante
+        if min_dist_center < 0.30 %Ya que el lidar esta mas adelante
             v_cmd = 0;
             w_cmd = 0.35;
             %flag_i_smell_a_rat = true;
@@ -386,7 +391,7 @@ for idx = 2:numel(tVec)
             v_cmd = 0;
             w_cmd = 0;
         else
-            [v_cmd, w_cmd] = movimiento(plan(next_pos_index, :), pose(:, idx));
+            [v_cmd, w_cmd] = movimiento(plan(next_pos_index, :), pose_estimada);
         end
         
         
@@ -415,8 +420,8 @@ for idx = 2:numel(tVec)
     % --- Actualizar los datos del quiver ---
 
     set(h_particles, ...
-        'XData', particles(:,1), ...
-        'YData', particles(:,2));
+        'XData', new_particles(:,1), ...
+        'YData', new_particles(:,2));
     set(i_particles, ...
         'XData', particles2(:,1), ...
         'YData', particles2(:,2));

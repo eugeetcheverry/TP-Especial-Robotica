@@ -1,4 +1,4 @@
-function weight = measurement_model(z, x, lidar)
+function weight = measurement_model(z, x, lidar, sigma)
     % Computes the observation likelihood of all particles.
     %
     % The employed sensor model is range only.
@@ -6,7 +6,6 @@ function weight = measurement_model(z, x, lidar)
     % z: set of landmark observations. Each observation contains the id of the landmark observed in z(i).id and the measured range in z(i).range.
     % x: set of current particles
     % l: map of the environment composed of all landmarks
-    sigma = 1;
     weight = ones(size(x, 1), 1);
     
     z_esp = zeros(floor(size(z,1)/9),size(x,1));
