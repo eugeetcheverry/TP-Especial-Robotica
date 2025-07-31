@@ -21,8 +21,8 @@ function weight = measurement_model(z, x, lidar)
         return
     end
     
-    z_esp(isnan(z_esp)) = 8.0;
-    z_trunc(isnan(z_trunc)) = 8.0;
+    z_esp(isnan(z_esp)) = 5.0;
+    z_trunc(isnan(z_trunc)) = 5.0;
     
     z_mat = repmat(z_trunc(:), 1, size(x,1));
     

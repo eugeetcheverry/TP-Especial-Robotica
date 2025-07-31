@@ -1,18 +1,19 @@
-function cmd = movimiento(pose, particles):
-    theta_robot = cumsum(particles(3, :))/size(particles(3,:));
-    for i = [0:size(pose))]
-        angle = atan2(pose(2, i+1) - pose(2, i), pose(1, i+1) - pose(1, i));
-        if (theta_robot - 0.02*pi) < angle < (theta_robot + 0.03*pi)
-            %Seguir como esty Vcmd igual wcmd cero
-            v_cmd = 0.5;
-            w_cmd = 0;
-        elseif angle > theta_robot %Girar a la izquied=rda
-            v_cmd = 0;
-            w_cmd = 0.35;
-        elseif angle < theta_robot %Girar a la derecha
-            v_cmd = 0;
-            w_cmd = -0.35;
-        end
-        cmd(i) = [v_cmd, w_cmd];
-    end 
+function [v_cmd, w_cmd] = movimiento(pose, particles)
+    theta_robot = particles(3);
+    
+    angle = atan2(pose(2) - particles(2), pose(1) - particles(1));
+    angle_diff = wrapToPi(angle - theta_robot);
+    
+    if abs(angle_diff) < deg2rad(5)
+        %Seguir como esty Vcmd igual wcmd cero
+        v_cmd = 0.2;
+        w_cmd = 0;
+    elseif angle_diff > 0 %Girar a la izquied=rda
+        v_cmd = 0;
+        w_cmd = 0.35;
+    elseif angle_diff < 0 %Girar a la derecha
+        v_cmd = 0;
+        w_cmd = -0.35;
+    end
+
 end

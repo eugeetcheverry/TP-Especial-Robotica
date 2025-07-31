@@ -4,6 +4,6 @@ function heur = heuristic(cell, goal)
   
   %%% YOUR CODE FOR CALCULATING THE REMAINING COST FROM A CELL TO THE GOAL GOES HERE
   
-  heur = 2*norm(cell-goal); %Distancia euclídea como heurística, se multiplica por un factor para el último ej
+  heur = 3*norm(cell-goal); %Distancia euclídea como heurística, se multiplica por un factor para el último ej
   
 end

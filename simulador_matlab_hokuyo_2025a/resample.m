@@ -35,10 +35,12 @@ function new_particles = resample(particles, weights)
         end
     end
     
+    
     for i = [5:size(new_particles,1)]
         new_particles(i,1) = normrnd(new_particles(i,1), 0.05, 1, 1);
         new_particles(i,2) = normrnd(new_particles(i,2), 0.05, 1, 1);
         new_particles(i,3) = wrapToPi(normrnd(new_particles(i,3), 0.1, 1, 1));
     end
+    
     
 end

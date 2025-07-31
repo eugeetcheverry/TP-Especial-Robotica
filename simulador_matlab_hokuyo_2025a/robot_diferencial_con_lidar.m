@@ -41,13 +41,14 @@ load mapa_TP_2025a.mat      %carga el mapa como occupancyMap en la variable 'map
 
 binMap = occupancyMatrix(map) < 0.1;
 
-trajectoryMatrix = imgaussfilt(occupancyMatrix(map), 3);
+trajectoryMatrix = imgaussfilt(occupancyMatrix(map), 5);
 
 trajectoryMap = occupancyMap(trajectoryMatrix, 25);
 
-
 % Obtener los índices de celdas libres
 [free_y, free_x] = find(binMap);  % coordenadas en celdas
+
+destino = [12, 15];
 
 if verMatlab.Release=='(R2016b)'
     %Para versiones anteriores de MATLAB, puede ser necesario ajustar mapa
@@ -132,8 +133,10 @@ min_dist_left = 1;
 cont_giro = 0;
 
 
-particles = initialize_particles(20, [free_y, free_x], map);
-particles2 = initialize_particles(800, [free_y, free_x], map);
+num_particles = 24;
+num_aux_particles = 800;
+particles = initialize_particles(num_particles, [free_y, free_x], map);
+particles2 = initialize_particles(num_aux_particles, [free_y, free_x], map);
 
 figure(10); clf;
 ax = axes;
@@ -226,40 +229,29 @@ for idx = 2:numel(tVec)
    d_trans = sqrt((pose(1,idx)-pose(1,idx-1))^2 + (pose(2,idx)-pose(2,idx-1))^2);
    d_rot1 = atan2((pose(2,idx)-pose(2,idx-1)), (pose(1,idx)-pose(1,idx-1))) - wrapToPi(pose(3, idx-1));
    d_rot2 =  wrapToPi(pose(3, idx)) - wrapToPi(pose(3, idx-1)) - d_rot1;
+   if v_cmd == 0
+    d_trans = 0;
+    d_rot1 = wrapToPi(pose(3, idx)) - wrapToPi(pose(3, idx-1));
+    d_rot2 = 0;
+   end
 
    u = [d_trans, d_rot1, d_rot2];
     
-   if v_cmd ~= 0
-    new_particles = sample_motion_model(u, particles);
-   else
-    new_particles = particles;
-   end
+
+   new_particles = sample_motion_model(u, particles);
+
    
    weight2 = 0;
+   
    if mod(idx, 10) == 0 && not(i_found_myself)
-    particles2 = initialize_particles(800, [free_y, free_x], map);
+    particles2 = initialize_particles(num_aux_particles, [free_y, free_x], map);
     weight2 = measurement_model(ranges, particles2, lidar2);
    end
+   
    weight = measurement_model(ranges, new_particles, lidar2);
 
-   
-   %{
-   if max(weight) < 0.0001
-    n_reinicializar = round(0.2 * size(particles,1));  % 10 partículas nuevas
-    
-
-    random_particles = initialize_particles(n_reinicializar);
-    
-
-    new_particles(1:n_reinicializar, :) = random_particles;
-    
-
-    weight(1:n_reinicializar) = 1/size(particles,1);
-   end
-   %}
-
-   if  max(weight2) > max(weight) && not(i_found_myself)
-        indices = find(weight2 > max(weight));
+   if  max(weight2) > 0.9*max(weight) && not(i_found_myself)
+        indices = find(weight2 > 0.9*max(weight));
         if size(indices,1) > size(particles,1)
             indices = indices(1:size(particles,1));
         end
@@ -282,20 +274,20 @@ for idx = 2:numel(tVec)
        end
    end
    
-   [~, index_max] = max(weight);
-   pose_estimada = particles(index_max, :);
+   pose_estimada = sum(particles.*weight,1);
    
    
-   if cont_i_found_myself > 10 && not(i_found_myself)
+   if cont_i_found_myself > 80 && not(i_found_myself)
         i_found_myself = true;
         v_cmd = 0;
         w_cmd = 0;
         i = 0;
         for i = [1:100]
-            i = i+1;
             waitfor(r);
         end
-        plan = planeamiento(trajectoryMap, flip(pose_estimada(1:2)),[20, 20]);
+        plan = planeamiento(trajectoryMap, pose_estimada(1:2, idx),destino);
+        plan = plan(1:5:size(plan, 1), :);
+        next_pos_index = 2;
    end
 
    if flag_center
@@ -370,6 +362,7 @@ for idx = 2:numel(tVec)
         end
     
    else
+       
         %{
         coords = particles(:,1:2); 
         dists = pdist(coords, 'euclidean');
@@ -379,8 +372,26 @@ for idx = 2:numel(tVec)
                  cont_i_found_myself = 0;
         end
         %}
-        v_cmd = 0;
-        w_cmd = 0;
+        
+        while (pdist([pose_estimada(1:2);plan(next_pos_index, :)], 'euclidean') < 0.2) && (next_pos_index < size(plan,1))
+            next_pos_index = next_pos_index + 1;
+        end
+        %{
+        if pdist([pose_estimada(1:2);plan(next_pos_index, :)], 'euclidean') > 1
+            plan = planeamiento(trajectoryMap, pose_estimada(1:2), destino);
+            next_pos_index = 1;
+        end
+        %}
+        if next_pos_index == size(plan, 1)
+            v_cmd = 0;
+            w_cmd = 0;
+        else
+            [v_cmd, w_cmd] = movimiento(plan(next_pos_index, :), pose_estimada);
+        end
+        
+        
+        
+        
     end
         
         

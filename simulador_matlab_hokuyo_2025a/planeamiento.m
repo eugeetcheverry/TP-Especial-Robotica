@@ -2,8 +2,8 @@
 % where y is the row and x is the column
 
 function camino = planeamiento(map, start, goal)
-    start = floor(start.*map.Resolution)
-    goal = floor(goal.*map.Resolution)
+    start = floor(flip(start).*map.Resolution)
+    goal = floor(flip(goal).*map.Resolution)
     
 
     map = occupancyMatrix(map);
@@ -110,11 +110,11 @@ function camino = planeamiento(map, start, goal)
     camino = parent;
     distance2 = 0;
     while previous_x(parent(1), parent(2))>=0
-      plot(parent(2), parent(1), 'b.');
+      %plot(parent(2), parent(1), 'b.');
 
       %for visualization: Plot goal again
       if(parent(1) == goal(1) && parent(2) == goal(2))
-        plot(goal(2), goal(1), 'g.');
+        %plot(goal(2), goal(1), 'g.');
       end
 
       child_y = previous_y(parent(1), parent(2));
